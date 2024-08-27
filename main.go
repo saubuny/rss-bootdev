@@ -195,6 +195,17 @@ func (cfg *apiConfig) createFeedHandler(w http.ResponseWriter, r *http.Request, 
 	respondWithJSON(w, 200, feed)
 }
 
+func (cfg *apiConfig) getAllFeedsHandler(w http.ResponseWriter, r *http.Request) {
+	feeds, err := cfg.DB.GetAllFeeds(r.Context())
+
+	if err != nil {
+		respondWithError(w, 500, "Error Getting Feeds: "+err.Error())
+		return
+	}
+
+	respondWithJSON(w, 200, feeds)
+}
+
 func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
@@ -210,6 +221,7 @@ func main() {
 	serveMux.HandleFunc("POST /v1/users", cfg.createUserHandler)
 	serveMux.HandleFunc("GET /v1/users", cfg.getUserByApiKeyHandler)
 	serveMux.HandleFunc("POST /v1/feeds", cfg.middlewareAuth(cfg.createFeedHandler))
+	serveMux.HandleFunc("GET /v1/feeds", cfg.getAllFeedsHandler)
 
 	server := http.Server{Handler: serveMux, Addr: "localhost:" + port}
 	fmt.Println("[Info] Starting server on port", 8080)

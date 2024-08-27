@@ -192,7 +192,25 @@ func (cfg *apiConfig) createFeedHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	respondWithJSON(w, 200, feed)
+	feed_follow, err := cfg.DB.CreateFeedFollow(r.Context(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	if err != nil {
+		respondWithError(w, 500, "Error Creating Feed Follow: "+err.Error())
+		return
+	}
+
+	type res struct {
+		Feed       database.Feed       `json:"feed"`
+		FeedFollow database.FeedFollow `json:"feed_follow"`
+	}
+
+	respondWithJSON(w, 200, res{Feed: feed, FeedFollow: feed_follow})
 }
 
 func (cfg *apiConfig) getAllFeedsHandler(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +222,67 @@ func (cfg *apiConfig) getAllFeedsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondWithJSON(w, 200, feeds)
+}
+
+func (cfg *apiConfig) createFeedFollowHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	type body struct {
+		FeedId uuid.UUID `json:"feed_id"`
+	}
+
+	var b body
+	req, _ := io.ReadAll(r.Body)
+	err := json.Unmarshal(req, &b)
+
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+		return
+	}
+
+	feedFollow, err := cfg.DB.CreateFeedFollow(r.Context(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		FeedID:    b.FeedId,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	if err != nil {
+		respondWithError(w, 500, "Error Creating Feed Follow: "+err.Error())
+		return
+	}
+
+	respondWithJSON(w, 200, feedFollow)
+}
+
+func (cfg *apiConfig) deleteFeedFollowHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	id, err := uuid.Parse(r.PathValue("feedFollowID"))
+	if err != nil {
+		respondWithError(w, 500, "Error getting feed follow ID: "+err.Error())
+		return
+	}
+
+	feed_follow, err := cfg.DB.GetFeedFollowById(r.Context(), id)
+	if feed_follow.UserID != user.ID {
+		respondWithError(w, 401, "This user does not own the given feed follow")
+		return
+	}
+
+	err = cfg.DB.DeleteFeedFollow(r.Context(), id)
+	if err != nil {
+		respondWithError(w, 500, "Error Deleting Feed Follow: "+err.Error())
+		return
+	}
+
+	w.WriteHeader(200)
+}
+
+func (cfg *apiConfig) getFeedFollowsHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	feed_follows, err := cfg.DB.GetFeedFollowsByUserId(r.Context(), user.ID)
+	if err != nil {
+		respondWithError(w, 500, "Error Getting Feed Follows: "+err.Error())
+		return
+	}
+	respondWithJSON(w, 200, feed_follows)
 }
 
 func main() {
@@ -222,6 +301,9 @@ func main() {
 	serveMux.HandleFunc("GET /v1/users", cfg.getUserByApiKeyHandler)
 	serveMux.HandleFunc("POST /v1/feeds", cfg.middlewareAuth(cfg.createFeedHandler))
 	serveMux.HandleFunc("GET /v1/feeds", cfg.getAllFeedsHandler)
+	serveMux.HandleFunc("POST /v1/feed_follows", cfg.middlewareAuth(cfg.createFeedFollowHandler))
+	serveMux.HandleFunc("GET /v1/feed_follows", cfg.middlewareAuth(cfg.getFeedFollowsHandler))
+	serveMux.HandleFunc("DELETE /v1/feed_follows/{feedFollowID}", cfg.middlewareAuth((cfg.deleteFeedFollowHandler)))
 
 	server := http.Server{Handler: serveMux, Addr: "localhost:" + port}
 	fmt.Println("[Info] Starting server on port", 8080)

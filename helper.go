@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -52,4 +54,60 @@ func databaseFeedToFeed(feed database.Feed) Feed {
 		UpdatedAt:     feed.UpdatedAt,
 		LastFetchedAt: feed.LastFetchedAt.Time,
 	}
+}
+
+// Rss was generated 2024-09-04 09:22:05 by https://xml-to-go.github.io/ in Ukraine.
+type Rss struct {
+	XMLName xml.Name `xml:"rss"`
+	Text    string   `xml:",chardata"`
+	Version string   `xml:"version,attr"`
+	Atom    string   `xml:"atom,attr"`
+	Channel struct {
+		Text  string `xml:",chardata"`
+		Title string `xml:"title"`
+		Link  struct {
+			Text string `xml:",chardata"`
+			Href string `xml:"href,attr"`
+			Rel  string `xml:"rel,attr"`
+			Type string `xml:"type,attr"`
+		} `xml:"link"`
+		Description   string `xml:"description"`
+		Generator     string `xml:"generator"`
+		Language      string `xml:"language"`
+		LastBuildDate string `xml:"lastBuildDate"`
+		Item          []struct {
+			Text        string `xml:",chardata"`
+			Title       string `xml:"title"`
+			Link        string `xml:"link"`
+			PubDate     string `xml:"pubDate"`
+			Guid        string `xml:"guid"`
+			Description string `xml:"description"`
+		} `xml:"item"`
+	} `xml:"channel"`
+}
+
+func fetchFromFeed(feedUrl string) (Rss, error) {
+	resp, err := http.Get(feedUrl)
+	if err != nil {
+		return Rss{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Rss{}, fmt.Errorf("Status error: %v", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Rss{}, fmt.Errorf("Read body: %v", err)
+	}
+
+	var res Rss
+	err = xml.Unmarshal(data, &res)
+
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }

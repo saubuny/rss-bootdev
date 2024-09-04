@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/saubuny/bootdev-rss/internal/database"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/saubuny/bootdev-rss/internal/database"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -226,4 +228,19 @@ func (cfg *apiConfig) getFeedFollowsHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	respondWithJSON(w, 200, feed_follows)
+}
+
+func (cfg *apiConfig) getPostsHandler(w http.ResponseWriter, r *http.Request, user database.User) {
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+
+	if err != nil {
+		limit = 10
+	}
+
+	posts, err := cfg.DB.GetPostsByUser(r.Context(), database.GetPostsByUserParams{UserID: user.ID, Limit: int32(limit)})
+	if err != nil {
+		respondWithError(w, 500, "Error Getting Posts: "+err.Error())
+		return
+	}
+	respondWithJSON(w, 200, posts)
 }

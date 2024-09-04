@@ -137,8 +137,27 @@ func (cfg *apiConfig) feedFetchWorker() {
 				rss, err := fetchFromFeed(url)
 				if err != nil {
 					log.Println("Error in feed fetch worker: " + err.Error())
+					return
 				}
-				fmt.Println("Feed processed: " + rss.Channel.Title)
+				for _, post := range rss.Channel.Item {
+					log.Println("Processing post: " + post.Title)
+					pubDate, err := time.Parse(time.RFC1123Z, post.PubDate)
+					if err != nil {
+						log.Println("Error in parsing pubDate: " + err.Error())
+						return
+					}
+					cfg.DB.CreatePost(context.Background(), database.CreatePostParams{
+						ID:          uuid.New(),
+						CreatedAt:   time.Now(),
+						UpdatedAt:   time.Now(),
+						Title:       post.Title,
+						Url:         post.Link,
+						Description: post.Description,
+						PublishedAt: pubDate,
+						FeedID:      feed.ID,
+					})
+				}
+				log.Println("Feed processed: " + rss.Channel.Title)
 			}(feed.Url)
 		}
 

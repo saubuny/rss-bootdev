@@ -35,6 +35,7 @@ func main() {
 	serveMux.HandleFunc("POST /v1/feed_follows", cfg.middlewareAuth(cfg.createFeedFollowHandler))
 	serveMux.HandleFunc("GET /v1/feed_follows", cfg.middlewareAuth(cfg.getFeedFollowsHandler))
 	serveMux.HandleFunc("DELETE /v1/feed_follows/{feedFollowID}", cfg.middlewareAuth((cfg.deleteFeedFollowHandler)))
+	serveMux.HandleFunc("GET /v1/posts", cfg.middlewareAuth((cfg.getPostsHandler)))
 
 	go cfg.feedFetchWorker()
 	server := http.Server{Handler: serveMux, Addr: "localhost:" + port}

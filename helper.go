@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +43,7 @@ func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 
 type Feed struct {
 	ID            uuid.UUID
+	Name          string
 	UserID        uuid.UUID
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
@@ -49,6 +53,7 @@ type Feed struct {
 func databaseFeedToFeed(feed database.Feed) Feed {
 	return Feed{
 		ID:            feed.ID,
+		Name:          feed.Name,
 		UserID:        feed.UserID,
 		CreatedAt:     feed.CreatedAt,
 		UpdatedAt:     feed.UpdatedAt,
@@ -110,4 +115,34 @@ func fetchFromFeed(feedUrl string) (Rss, error) {
 	}
 
 	return res, nil
+}
+
+func (cfg *apiConfig) feedFetchWorker() {
+	for {
+		log.Println("Fetching feeds from DB...")
+		feeds, err := cfg.DB.GetNextFeedsToFetch(context.Background(), 10)
+
+		if err != nil {
+			log.Println("Error in feed fetch worker: " + err.Error())
+			continue
+		}
+
+		log.Println("Processing feeds...")
+
+		var wg sync.WaitGroup
+		for _, feed := range feeds {
+			wg.Add(1)
+			go func(url string) {
+				defer wg.Done()
+				rss, err := fetchFromFeed(url)
+				if err != nil {
+					log.Println("Error in feed fetch worker: " + err.Error())
+				}
+				fmt.Println("Feed processed: " + rss.Channel.Title)
+			}(feed.Url)
+		}
+
+		wg.Wait()
+		time.Sleep(60 * time.Second)
+	}
 }

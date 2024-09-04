@@ -36,6 +36,7 @@ func main() {
 	serveMux.HandleFunc("GET /v1/feed_follows", cfg.middlewareAuth(cfg.getFeedFollowsHandler))
 	serveMux.HandleFunc("DELETE /v1/feed_follows/{feedFollowID}", cfg.middlewareAuth((cfg.deleteFeedFollowHandler)))
 
+	go cfg.feedFetchWorker()
 	server := http.Server{Handler: serveMux, Addr: "localhost:" + port}
 	fmt.Println("[Info] Starting server on port", 8080)
 	err = server.ListenAndServe()

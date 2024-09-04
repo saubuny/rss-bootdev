@@ -64,7 +64,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// TODO: Use the Auth Middleware for this !!
+// TODO: Use the Auth Middleware for this ?? repeated code methinks
 func (cfg *apiConfig) getUserByApiKeyHandler(w http.ResponseWriter, r *http.Request) {
 	headerAuth := r.Header.Get("Authorization")
 	if headerAuth == "" {
@@ -144,19 +144,24 @@ func (cfg *apiConfig) createFeedHandler(w http.ResponseWriter, r *http.Request, 
 	}
 
 	type res struct {
-		Feed       database.Feed       `json:"feed"`
+		Feed       Feed                `json:"feed"`
 		FeedFollow database.FeedFollow `json:"feed_follow"`
 	}
 
-	respondWithJSON(w, 200, res{Feed: feed, FeedFollow: feed_follow})
+	respondWithJSON(w, 200, res{Feed: databaseFeedToFeed(feed), FeedFollow: feed_follow})
 }
 
 func (cfg *apiConfig) getAllFeedsHandler(w http.ResponseWriter, r *http.Request) {
-	feeds, err := cfg.DB.GetAllFeeds(r.Context())
+	dbFeeds, err := cfg.DB.GetAllFeeds(r.Context())
 
 	if err != nil {
 		respondWithError(w, 500, "Error Getting Feeds: "+err.Error())
 		return
+	}
+
+	var feeds []Feed
+	for _, feed := range dbFeeds {
+		feeds = append(feeds, databaseFeedToFeed(feed))
 	}
 
 	respondWithJSON(w, 200, feeds)
